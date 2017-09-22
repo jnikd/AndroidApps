@@ -1,16 +1,12 @@
 package jp.gr.java_conf.jnikd.donkimap
 
-import com.squareup.moshi.KotlinJsonAdapterFactory
-import com.squareup.moshi.Moshi
 import jp.gr.java_conf.jnikd.donkimap.entity.StoreList
 import org.junit.Assert
 import org.junit.Test
 
 class StoreTest {
 
-    @Test
-    fun convert_from_json() {
-        val json = """{"list":[
+    private val json = """{"list":[
                 {
                 "name": "中目黒店",
                 "address": "東京都ほげほげ",
@@ -23,8 +19,9 @@ class StoreTest {
                 }
             ]}"""
 
-        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-        val storeList: StoreList? = moshi.adapter(StoreList::class.java).fromJson(json)
+    @Test
+    fun convert_from_json() {
+        val storeList: StoreList? = StoreList.adapter().fromJson(json)
         val list = storeList?.list
 
         val store0 = list?.get(0)
