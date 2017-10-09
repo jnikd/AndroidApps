@@ -1,8 +1,11 @@
 package jp.gr.java_conf.jnikd.donkimap.view
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
+import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
@@ -14,6 +17,7 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import jp.gr.java_conf.jnikd.donkimap.R
+import jp.gr.java_conf.jnikd.donkimap.entity.StoreList
 import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -27,32 +31,48 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
-        val map = googleMap
-
+        // 現在位置を利用可能にする
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1);
-
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
-            map.isMyLocationEnabled = true;
-            map.uiSettings.isMyLocationButtonEnabled = true;
+            googleMap.isMyLocationEnabled = true;
+            googleMap.uiSettings.isMyLocationButtonEnabled = true;
         }
 
-        val position = LatLng(35.6489301, 139.6926504)
-        map.addMarker(MarkerOptions().position(position).title("中目黒店"))
-        map.moveCamera(CameraUpdateFactory.newLatLng(position))
+        // json読み込み
+        val json = assets.open("tenpo.json").reader(charset = Charsets.UTF_8).use { it.readText() }
+        val storeList: StoreList? = StoreList.adapter().fromJson(json)
+        val list = storeList?.list ?: listOf()
+        // TODO 非同期で処理してマッピング
+        val sublist = list.subList(0,100)
 
-        map.setOnMyLocationButtonClickListener {
-            // 住所から緯度経度
-            val gcoder = Geocoder(this, Locale.getDefault());
-            val address = gcoder.getFromLocationName("福岡県久留米市東合川2-2-1", 1).get(0)
+        val geoCoder = Geocoder(this, Locale.getDefault());
+        sublist.forEach {
+            val start = System.currentTimeMillis()
+            val hoge = geoCoder.getFromLocationName(it.address, 1)
+            System.out.println(System.currentTimeMillis() - start)
+            // 住所から位置の変換に失敗した場合はスキップ
+            if (hoge.size < 1) {
+                System.out.println(it.name)
+                return@forEach
+            }
+            val address = hoge[0]
             val latitude = address.latitude
             val longitude = address.longitude
+            val position = LatLng(latitude, longitude)
+            googleMap.addMarker(MarkerOptions().position(position).title(it.name))
+        }
 
-            // 現在位置
-//            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-//            val location: Location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        // デフォルト表示
+        val position = LatLng(35.6489301, 139.6926504)
+        googleMap.addMarker(MarkerOptions().position(position).title("中目黒店"))
+        googleMap.moveCamera(CameraUpdateFactory.newLatLng(position))
 
-            map.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latitude, longitude)))
+        // 現在位置
+        googleMap.setOnMyLocationButtonClickListener {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val location: Location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            googleMap.moveCamera(CameraUpdateFactory.newLatLng(LatLng(location.latitude, location.longitude)))
             false
         }
     }
